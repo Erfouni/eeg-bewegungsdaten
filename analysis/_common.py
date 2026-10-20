@@ -1,0 +1,38 @@
+"""What the analysis scripts share: the matched clean rows of a year and the open-MaStR database."""
+
+from __future__ import annotations
+
+import sqlite3
+from contextlib import closing
+from typing import Any
+
+import polars as pl
+
+from eeg_bewegungsdaten.mastr import HITS, check_match, clean_files, default_db_path
+from eeg_bewegungsdaten.paths import default_data_dir, output_paths
+
+# Matches that lead to exactly one EEG plant.
+SINGLE_PLANT = [hit for hit in HITS if hit != "MULTIPLE"]
+KEY = ["jahr", "uenb", "quelldatei", "zeile"]
+
+
+def matched_rows(jahr: int, energietraeger: str) -> pl.LazyFrame:
+    """The clean rows of `jahr` that `mastr` matched to exactly one plant of `energietraeger`,
+    with `mastr_eeg_nr`."""
+    data = default_data_dir()
+    uenbs = [uenb for year, uenb in clean_files(data) if year == jahr]
+    clean = [output_paths(data, jahr, uenb).clean for uenb in uenbs]
+    matches = [check_match(data, jahr, uenb) for uenb in uenbs]
+    return (
+        pl.scan_parquet(clean)
+        .join(pl.scan_parquet(matches), on=KEY)
+        .filter(
+            (pl.col("energietraeger") == energietraeger) & pl.col("treffer").is_in(SINGLE_PLANT)
+        )
+    )
+
+
+def query_mastr(sql: str) -> list[tuple[Any, ...]]:
+    """The rows of a query against the open-MaStR database, opened read-only."""
+    with closing(sqlite3.connect(f"file:{default_db_path()}?mode=ro", uri=True)) as con:
+        return con.execute(sql).fetchall()

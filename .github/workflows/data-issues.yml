@@ -1,0 +1,40 @@
+name: Data issues
+
+# Opens the issues for the yearly upkeep when the netztransparenz.de page lists files that
+# OLDER_FILES does not have: a new year, or a new upload of a known one. From 16 September on,
+# also when the data of the previous year are missing. Loads only the HTML page, never the data
+# files. See .github/scripts/data_issues.py.
+
+on:
+  schedule:
+    # Daily from August to October, when new years come out; on Mondays in the other months for
+    # late uploads. The months must not overlap, or a Monday in August runs twice.
+    - cron: "41 5 * 8-10 *"
+    - cron: "41 5 * 1-7,11-12 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.13.1"
+
+jobs:
+  issues:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-dev
+      - run: uv run python .github/scripts/data_issues.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Downloads and generated data never go into git
+data/
+*.zip
+*.parquet
+*.part
+
+.DS_Store
